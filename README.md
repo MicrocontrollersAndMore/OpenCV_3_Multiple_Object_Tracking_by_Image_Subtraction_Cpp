@@ -1,1 +1,0 @@
-# OpenCV_3_Multiple_Object_Tracking_by_Image_Subtraction_Cpp
