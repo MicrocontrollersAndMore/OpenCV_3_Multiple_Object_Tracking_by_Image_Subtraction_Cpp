@@ -52,8 +52,6 @@ int main(void) {
     capVideo.read(imgFrame1);
     capVideo.read(imgFrame2);
 
-    int intHorizontalLinePosition = (int)std::round((double)imgFrame1.rows * 0.35);
-
     char chCheckForEscKey = 0;
 
     bool blnFirstFrame = true;
