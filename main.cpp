@@ -35,8 +35,6 @@ int main(void) {
 
     std::vector<Blob> blobs;
 
-    int carCount = 0;
-
     capVideo.open("768x576.avi");
 
     if (!capVideo.isOpened()) {                                                 // if unable to open video file
@@ -244,29 +242,6 @@ double distanceBetweenPoints(cv::Point point1, cv::Point point2) {
     int intY = abs(point1.y - point2.y);
 
     return(sqrt(pow(intX, 2) + pow(intY, 2)));
-}
-
-///////////////////////////////////////////////////////////////////////////////////////////////////
-bool checkIfBlobsCrossedTheLine(std::vector<Blob> &blobs, int &intHorizontalLinePosition, int &carCount) {
-    bool blnAtLeastOneBlobCrossedTheLine = false;
-
-    for (auto blob : blobs) {
-
-        if (blob.blnStillBeingTracked) {
-            int prevFrameIndex = (int)blob.centerPositions.size() - 2;
-            int currFrameIndex = (int)blob.centerPositions.size() - 1;
-
-            if (blob.centerPositions[prevFrameIndex].y > intHorizontalLinePosition && blob.centerPositions[currFrameIndex].y <= intHorizontalLinePosition) {
-                carCount++;
-                blnAtLeastOneBlobCrossedTheLine = true;
-            }
-        }
-
-    }
-
-    std::cout << "carCount = " << carCount << "\n";
-
-    return blnAtLeastOneBlobCrossedTheLine;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
