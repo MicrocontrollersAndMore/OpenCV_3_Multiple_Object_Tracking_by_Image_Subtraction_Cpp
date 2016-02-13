@@ -20,7 +20,6 @@ public:
     double dblCurrentDiagonalSize;
     double dblCurrentAspectRatio;
 
-    bool blnTrackedCurrently;
     bool blnCurrentMatchFoundOrNewBlob;
 
     bool blnStillBeingTracked;
@@ -28,7 +27,7 @@ public:
     int intNumOfConsecutiveFramesWithoutAMatch;
 
     cv::Point predictedNextPosition;
-
+    
     // function prototypes ////////////////////////////////////////////////////////////////////////
     Blob(std::vector<cv::Point> _contour);
     void predictNextPosition(void);

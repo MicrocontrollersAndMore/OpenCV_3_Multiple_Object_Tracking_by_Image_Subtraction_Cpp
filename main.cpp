@@ -23,6 +23,8 @@ void matchCurrentFrameBlobsToExistingBlobs(std::vector<Blob> &existingBlobs, std
 void addBlobToExistingBlobs(Blob &currentFrameBlob, std::vector<Blob> &existingBlobs, int &intIndex);
 void addNewBlob(Blob &currentFrameBlob, std::vector<Blob> &existingBlobs);
 double distanceBetweenPoints(cv::Point point1, cv::Point point2);
+void drawAndShowContours(cv::Size imageSize, std::vector<std::vector<cv::Point> > contours, std::string strImageName);
+void drawAndShowContours(cv::Size imageSize, std::vector<Blob> blobs, std::string strImageName);
 void drawBlobInfoOnImage(std::vector<Blob> &blobs, cv::Mat &imgFrame2Copy);
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -56,6 +58,8 @@ int main(void) {
 
     bool blnFirstFrame = true;
 
+    int frameCount = 2;
+
     while (capVideo.isOpened() && chCheckForEscKey != 27) {
 
         std::vector<Blob> currentFrameBlobs;
@@ -81,10 +85,17 @@ int main(void) {
         cv::Mat structuringElement3x3 = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(3, 3));
         cv::Mat structuringElement5x5 = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(5, 5));
         cv::Mat structuringElement7x7 = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(7, 7));
-        cv::Mat structuringElement15x15 = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(15, 15));
+        cv::Mat structuringElement9x9 = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(9, 9));
 
+        /*
         cv::dilate(imgThresh, imgThresh, structuringElement7x7);
         cv::erode(imgThresh, imgThresh, structuringElement3x3);
+        */
+
+        cv::dilate(imgThresh, imgThresh, structuringElement5x5);
+        cv::dilate(imgThresh, imgThresh, structuringElement5x5);
+        cv::erode(imgThresh, imgThresh, structuringElement5x5);
+
         
         cv::Mat imgThreshCopy = imgThresh.clone();
 
@@ -92,8 +103,18 @@ int main(void) {
 
         cv::findContours(imgThreshCopy, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
 
-        for (auto &contour : contours) {
-            Blob possibleBlob(contour);
+        drawAndShowContours(imgThresh.size(), contours, "imgContours");
+
+        std::vector<std::vector<cv::Point> > convexHulls(contours.size());
+
+        for (unsigned int i = 0; i < contours.size(); i++) {
+            cv::convexHull(contours[i], convexHulls[i]);
+        }
+
+        drawAndShowContours(imgThresh.size(), convexHulls, "imgConvexHulls");
+
+        for (auto &convexHull : convexHulls) {
+            Blob possibleBlob(convexHull);
 
             if (possibleBlob.currentBoundingRect.area() > 100 &&
                 possibleBlob.dblCurrentAspectRatio >= 0.2 &&
@@ -106,6 +127,8 @@ int main(void) {
             }
         }
 
+        drawAndShowContours(imgThresh.size(), currentFrameBlobs, "imgCurrentFrameBlobs");
+
         if (blnFirstFrame == true) {
             for (auto &currentFrameBlob : currentFrameBlobs) {
                 blobs.push_back(currentFrameBlob);
@@ -115,24 +138,15 @@ int main(void) {
             matchCurrentFrameBlobsToExistingBlobs(blobs, currentFrameBlobs);
         }
 
-        cv::Mat imgContours(imgThresh.size(), CV_8UC3, SCALAR_BLACK);
-        contours.clear();
-
-        for (auto &blob : blobs) {
-            if (blob.blnStillBeingTracked == true) {
-                contours.push_back(blob.currentContour);
-            }
-        }
-
-        cv::drawContours(imgContours, contours, -1, SCALAR_WHITE, -1);
-
-        cv::imshow("imgContours", imgContours);
+        drawAndShowContours(imgThresh.size(), blobs, "imgBlobs");
 
         imgFrame2Copy = imgFrame2.clone();          // get another copy of frame 2 since we changed the previous frame 2 copy in the processing above
 
         drawBlobInfoOnImage(blobs, imgFrame2Copy);
 
         cv::imshow("imgFrame2Copy", imgFrame2Copy);
+
+        //cv::waitKey(0);                 // uncomment this line to go frame by frame for debugging
 
                 // now we prepare for the next iteration
 
@@ -149,7 +163,7 @@ int main(void) {
         }
 
         blnFirstFrame = false;
-
+        frameCount++;
         chCheckForEscKey = cv::waitKey(1);
     }
 
@@ -174,9 +188,9 @@ void matchCurrentFrameBlobsToExistingBlobs(std::vector<Blob> &existingBlobs, std
     for (auto &currentFrameBlob : currentFrameBlobs) {
 
         int intIndexOfLeastDistance = 0;
-        double dblLeastDistance = 1000000.0;
+        double dblLeastDistance = 100000.0;
 
-        for (unsigned int i = 0; i < existingBlobs.size() - 1; i++) {
+        for (unsigned int i = 0; i < existingBlobs.size(); i++) {
             if (existingBlobs[i].blnStillBeingTracked == true) {
                 double dblDistance = distanceBetweenPoints(currentFrameBlob.centerPositions.back(), existingBlobs[i].predictedNextPosition);
 
@@ -187,7 +201,7 @@ void matchCurrentFrameBlobsToExistingBlobs(std::vector<Blob> &existingBlobs, std
             }
         }
 
-        if (dblLeastDistance < currentFrameBlob.dblCurrentDiagonalSize * 1.5) {
+        if (dblLeastDistance < currentFrameBlob.dblCurrentDiagonalSize * 1.15) {
             addBlobToExistingBlobs(currentFrameBlob, existingBlobs, intIndexOfLeastDistance);
         }
         else {
@@ -240,6 +254,33 @@ double distanceBetweenPoints(cv::Point point1, cv::Point point2) {
     int intY = abs(point1.y - point2.y);
 
     return(sqrt(pow(intX, 2) + pow(intY, 2)));
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+void drawAndShowContours(cv::Size imageSize, std::vector<std::vector<cv::Point> > contours, std::string strImageName) {
+    cv::Mat image(imageSize, CV_8UC3, SCALAR_BLACK);
+
+    cv::drawContours(image, contours, -1, SCALAR_WHITE, -1);
+
+    cv::imshow(strImageName, image);
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+void drawAndShowContours(cv::Size imageSize, std::vector<Blob> blobs, std::string strImageName) {
+
+    cv::Mat image(imageSize, CV_8UC3, SCALAR_BLACK);
+
+    std::vector<std::vector<cv::Point> > contours;
+
+    for (auto &blob : blobs) {
+        if (blob.blnStillBeingTracked == true) {
+            contours.push_back(blob.currentContour);
+        }
+    }
+
+    cv::drawContours(image, contours, -1, SCALAR_WHITE, -1);
+
+    cv::imshow(strImageName, image);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
